@@ -1,0 +1,42 @@
+# Node.js bağımlılıkları
+node_modules/
+
+# Ortam değişkenleri
+.env
+
+# IDE ve editör ayarları
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Günlük dosyaları
+logs/
+*.log
+npm-debug.log*
+
+# Derleme ve derleme sonucu oluşan dosyalar
+dist/
+tmp/
+out/
+
+# OS oluşturulan dosyalar
+.DS_Store
+Thumbs.db
+
+# Yükleme dizinleri
+/uploads
+
+# db dizinleri
+db/
+
+# Geliştirme araçları tarafından oluşturulan dosyalar
+/.pnp
+.pnp.js
+
+# Diğer
+*.tar.gz
+*.zip
+*.rar
+*.tar
+*.7z
