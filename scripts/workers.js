@@ -45,48 +45,41 @@ const updateWorkerData = async (newDevices) => {
 const fetchData = async (page = 1, pageSize = 100) => {
     try {
         console.log("Data fetching started..");
-        await axios
-            .get(`${apiUrl}?page=${page}&page_size=${pageSize}`, {
+        const res = await axios.get(
+            `${apiUrl}?page=${page}&page_size=${pageSize}`,
+            {
                 headers: {
                     Token: `${apiToken}`,
                 },
-            })
-            .then((res) => {
-                const data = res.data;
-                if (data && data.data && data.data.devices) {
-                    updateWorkerData(data.data.devices);
-                    if (page < data.data.total_pages) {
-                        console.log(
-                            `Fecting continues...page: ${page + 1} of ${
-                                data.data.total_pages
-                            }\n`
-                        );
-                        // Wait 0.35 seconds before fetching the next page
-                        setTimeout(() => {
-                            fetchData(page + 1, pageSize);
-                        }, 350);
-                    } else {
-                        console.log("Data fetching completed!\n");
-                    }
-                }
-            })
-            .catch((error) => {
-                console.error("Data fecthing error: ", error);
-            });
+            }
+        );
+        const data = res.data;
+        if (data && data.data && data.data.devices) {
+            await updateWorkerData(data.data.devices);
+            if (page < data.data.total_pages) {
+                console.log(
+                    `Fetching continues...page: ${page + 1} of ${
+                        data.data.total_pages
+                    }\n`
+                );
+                setTimeout(() => {
+                    fetchData(page + 1, pageSize);
+                }, 350);
+            } else {
+                console.log("Data fetching completed!\n");
+                // Data fetching is complete, immediately start the next fetchData call
+                fetchData(); // Restart fetching from the first page
+            }
+        }
     } catch (error) {
         console.error("Data fetching error: ", error);
+        // In case of error, try to restart the fetchData process after a delay
+        setTimeout(fetchData, 1000 * 60); // Try again after 1 minute
     }
 };
 
-setInterval(() => {
-    fetchData()
-        .then(() => {
-            console.log("\nData updated successfully!");
-        })
-        .catch((error) => {
-            console.error("Data update error: ", error);
-        });
-}, 1000 * 60 * 60); // Fetch data every 60 minutes
+// Initial call to start the process
+fetchData();
 
 module.exports = {
     fetchData,
