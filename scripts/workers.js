@@ -7,23 +7,21 @@ const util = require("util");
 let workers = []; // Store the worker data
 const writeFileAsync = util.promisify(fs.writeFile);
 
-const updateWorkerData = async (newDevices) => {
+const updateWorkerData = async (newDevice) => {
     console.log("Updating worker data...");
-    newDevices.forEach((newDevice) => {
-        const existingDeviceIndex = workers.findIndex(
-            (device) => device.device_id === newDevice.device_id
-        );
-        if (existingDeviceIndex !== -1) {
-            // Device is already in the workers array, update it
-            workers[existingDeviceIndex] = {
-                ...workers[existingDeviceIndex],
-                ...newDevice,
-            };
-        } else {
-            // Device is not in the workers array, add it
-            workers.push(newDevice);
-        }
-    });
+    const existingDeviceIndex = workers.findIndex(
+        (device) => device.device_id === newDevice.device_id
+    );
+    if (existingDeviceIndex !== -1) {
+        // Device is already in the workers array, update it
+        workers[existingDeviceIndex] = {
+            ...workers[existingDeviceIndex],
+            ...newDevice,
+        };
+    } else {
+        // Device is not in the workers array, add it
+        workers.push(newDevice);
+    }
 
     const filePath = path.join(__dirname, "../db/workerData.json");
     const dirPath = path.join(__dirname, "../db");
@@ -42,46 +40,47 @@ const updateWorkerData = async (newDevices) => {
     }
 };
 
-const fetchData = async (page = 1, pageSize = 100) => {
-    try {
-        console.log("Data fetching started..");
-        const res = await axios.get(
-            `${apiUrl}?page=${page}&page_size=${pageSize}`,
-            {
-                headers: {
-                    Token: `${apiToken}`,
-                },
-            }
-        );
-        const data = res.data;
-        if (data && data.data && data.data.devices) {
-            await updateWorkerData(data.data.devices);
-            if (page < data.data.total_pages) {
-                console.log(
-                    `Fetching continues...page: ${page + 1} of ${
-                        data.data.total_pages
-                    }\n`
-                );
-                setTimeout(() => {
-                    fetchData(page + 1, pageSize);
-                }, 350);
-            } else {
-                console.log("Data fetching completed!\n");
-                // Data fetching is complete, immediately start the next fetchData call
-                fetchData(); // Restart fetching from the first page
-            }
+const fetchSubscriptionDevices = async () => {
+    const subscriptionData = JSON.parse(
+        fs.readFileSync(
+            path.join(__dirname, "../db/subscriptionData.json"),
+            "utf8"
+        )
+    );
+    for (const subscription of subscriptionData) {
+        for (const deviceId of subscription.subscriptions) {
+            await fetchData(deviceId);
+            // 250ms delay between each device fetch
+            await new Promise((resolve) => setTimeout(resolve, 250));
         }
-    } catch (error) {
-        console.error("Data fetching error: ", error);
-        // In case of error, try to restart the fetchData process after a delay
-        setTimeout(fetchData, 1000 * 60); // Try again after 1 minute
     }
 };
 
-// Initial call to start the process
-fetchData();
+const fetchData = async (deviceId) => {
+    try {
+        console.log(`Data fetching started for device ID: ${deviceId}..`);
+        let url = `${apiUrl}/devices/${deviceId}/details`;
+        const res = await axios.get(url, {
+            headers: {
+                Token: `${apiToken}`,
+            },
+        });
+        const newDevice = res.data.data;
+        if (newDevice) {
+            await updateWorkerData(newDevice);
+        }
+    } catch (error) {
+        console.error("Data fetching error: ", error);
+    }
+};
+
+// Fetch data on startup
+fetchSubscriptionDevices();
+
+// Continue to fetch data every 2 minutes
+setInterval(fetchSubscriptionDevices, 120000);
 
 module.exports = {
-    fetchData,
+    fetchSubscriptionDevices,
     workers,
 };

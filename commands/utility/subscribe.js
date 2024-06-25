@@ -2,7 +2,14 @@ const { SlashCommandBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
-const filePath = path.join(__dirname, "../../db/subscriptionData.json");
+const subscriptionFilePath = path.join(
+    __dirname,
+    "../../db/subscriptionData.json"
+);
+const serverSettingsFilePath = path.join(
+    __dirname,
+    "../../db/serverSettings.json"
+);
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -12,12 +19,12 @@ module.exports = {
         )
         .addStringOption((option) =>
             option
-                .setName("deviceid")
+                .setName("device-id")
                 .setDescription("The device id you want to subscribe")
                 .setRequired(true)
         ),
     async execute(interaction) {
-        const userInput = interaction.options.get("deviceid").value;
+        const userInput = interaction.options.getString("device-id");
         if (!userInput) {
             await interaction.reply({
                 content: "Please enter a device id.",
@@ -36,22 +43,46 @@ module.exports = {
             });
             return;
         }
-        const userId = interaction.user.id;
-        const userName = interaction.user.username;
 
+        const guildId = interaction.guild.id;
+
+        // Check server settings to find the channel to send the message
+        let serverSettings;
+        try {
+            serverSettings = JSON.parse(
+                fs.readFileSync(serverSettingsFilePath, { encoding: "utf8" })
+            );
+        } catch (error) {
+            serverSettings = {};
+        }
+
+        const channelId = serverSettings[guildId];
+        if (!channelId) {
+            await interaction.reply({
+                content:
+                    "ERROR: No notification channel has been set for this server. Please ask the server administrator to set a notification channel before subscribing.",
+                ephemeral: true,
+            });
+            return;
+        }
+
+        // Subscription logic continues here if a channel is set...
+        const userId = interaction.user.id;
         const deviceId = userInput;
+
         let subscriptionData;
         try {
             subscriptionData = JSON.parse(
-                fs.readFileSync(filePath, { encoding: "utf8" })
+                fs.readFileSync(subscriptionFilePath, { encoding: "utf8" })
             );
         } catch (error) {
             subscriptionData = [];
         }
 
         const userSubscription = subscriptionData.find(
-            (sub) => sub.discordId === userId
+            (sub) => sub.discordId === userId && sub.guildId === guildId
         );
+
         if (userSubscription) {
             if (userSubscription.subscriptions.includes(deviceId)) {
                 await interaction.reply({
@@ -73,13 +104,18 @@ module.exports = {
         } else {
             subscriptionData.push({
                 discordId: userId,
+                guildId: guildId,
                 subscriptions: [deviceId],
             });
         }
 
-        fs.writeFileSync(filePath, JSON.stringify(subscriptionData, null, 2));
+        fs.writeFileSync(
+            subscriptionFilePath,
+            JSON.stringify(subscriptionData, null, 2)
+        );
+
         await interaction.reply({
-            content: "Successfully added. Device id: " + deviceId,
+            content: `Successfully subscribed to device ID: ${deviceId}. Notifications will be sent in the <#${channelId}> channel.`,
             ephemeral: true,
         });
     },

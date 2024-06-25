@@ -14,18 +14,22 @@ async function getSubscriptionData() {
     return JSON.parse(data);
 }
 
+async function saveSubscriptionData(data) {
+    await fs.writeFile(subscriptionDataPath, JSON.stringify(data, null, 2));
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("unsubscribe")
         .setDescription("Unsubscribe to stop receiving notifications")
         .addStringOption((option) =>
             option
-                .setName("deviceid")
+                .setName("device-id")
                 .setDescription("The device id you want to unsubscribe")
                 .setRequired(true)
         ),
     async execute(interaction) {
-        const userInput = interaction.options.get("deviceid").value;
+        const userInput = interaction.options.getString("device-id");
         if (!userInput) {
             await interaction.reply({
                 content: "Please enter a device id.",
@@ -47,12 +51,15 @@ module.exports = {
         const userId = interaction.user.id;
         const deviceId = userInput;
         const subscriptionData = await getSubscriptionData();
-        const userSubscription = subscriptionData.find(
+        const userSubscriptionIndex = subscriptionData.findIndex(
             (sub) => sub.discordId === userId
         );
-        if (userSubscription) {
+
+        if (userSubscriptionIndex !== -1) {
             const deviceIndex =
-                userSubscription.subscriptions.indexOf(deviceId);
+                subscriptionData[userSubscriptionIndex].subscriptions.indexOf(
+                    deviceId
+                );
             if (deviceIndex === -1) {
                 await interaction.reply({
                     content: "You do not have a subscription for this device.",
@@ -60,14 +67,22 @@ module.exports = {
                 });
                 return;
             }
-            userSubscription.subscriptions.splice(deviceIndex, 1);
+            subscriptionData[userSubscriptionIndex].subscriptions.splice(
+                deviceIndex,
+                1
+            );
+            if (
+                subscriptionData[userSubscriptionIndex].subscriptions.length ===
+                0
+            ) {
+                // Remove the user from the subscription data if they have no subscriptions left
+                subscriptionData.splice(userSubscriptionIndex, 1);
+            }
             try {
-                await fs.writeFile(
-                    subscriptionDataPath,
-                    JSON.stringify(subscriptionData, null, 2)
-                );
+                await saveSubscriptionData(subscriptionData);
                 await interaction.reply({
-                    content: "Successfully removed. Device id: " + deviceId,
+                    content:
+                        "Successfully unsubscribed. Device id: " + deviceId,
                     ephemeral: true,
                 });
             } catch (err) {

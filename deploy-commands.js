@@ -34,25 +34,10 @@ const rest = new REST({ version: "10" }).setToken(token);
 const deployCommands = async () => {
     try {
         console.log("Started refreshing application (/) commands.");
-
-        // guildIds.forEach(async (guildId) => {
-        //     const data = await rest.put(
-        //         Routes.applicationGuildCommands(clientId, guildId),
-        //         {
-        //             body: commands,
-        //         }
-        //     );
-        // });
-
         // The put method is used to fully refresh all commands in the guild with the current set
-        console.log(guildId);
-        const data = await rest.put(
-            Routes.applicationGuildCommands(clientId, guildId),
-            {
-                body: commands,
-            }
-        );
-
+        await rest.put(Routes.applicationCommands(clientId), {
+            body: commands,
+        });
         console.log("Successfully reloaded application (/) commands.");
     } catch (error) {
         // And of course, make sure you catch and log any errors!

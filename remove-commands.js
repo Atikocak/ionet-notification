@@ -1,15 +1,14 @@
 const { REST, Routes } = require("discord.js");
-const { clientId, guildIds, token, commandIdToRemove } = require("./config");
+const { clientId, token, commandIdToRemove, guildId } = require("./config");
 
 const rest = new REST({ version: "10" }).setToken(token);
 
 // Remove global slash command
-const commandName = "subscribe";
 const commandId = commandIdToRemove;
-const removeGlobalCommands = async () => {
+const removeGlobalCommand = async () => {
     try {
         console.log(
-            `Started removing global application "${commandName}" command..`
+            `Started removing global application "${commandId}" command..`
         );
 
         const data = await rest.delete(
@@ -17,7 +16,7 @@ const removeGlobalCommands = async () => {
         );
 
         console.log(
-            `Successfully removed global application "${commandName}" command..`
+            `Successfully removed global application "${commandId}" command..`
         );
         console.log(data);
     } catch (error) {
@@ -25,4 +24,4 @@ const removeGlobalCommands = async () => {
     }
 };
 
-await removeGlobalCommands();
+removeGlobalCommand();
