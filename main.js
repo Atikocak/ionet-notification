@@ -73,7 +73,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 });
 
-// Notify users about worker status every 10 minutes
+// Notify users about worker status every 1 minute
 client.on("ready", async () => {
     console.log(`Login as ${client.user.tag} successful!`);
     schedule.scheduleJob("*/1 * * * *", async function () {

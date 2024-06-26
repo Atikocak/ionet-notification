@@ -1,11 +1,27 @@
-const fs = require("fs");
 const axios = require("axios");
-const { apiUrl, apiToken } = require("../config");
+const { apiUrl, apiUrl2, apiToken } = require("../config");
+const fs = require("fs");
 const path = require("path");
 const util = require("util");
 
+// Define the paths to the JSON files
+const dirPath = path.join(__dirname, "../db");
+const workerDataPath = path.join(__dirname, "../db/workerData.json");
+const subscriptionDataPath = path.join(
+    __dirname,
+    "../db/subscriptionData.json"
+);
+
+// Read the JSON files
+const workerData = JSON.parse(fs.readFileSync(workerDataPath), "utf8");
+const subscriptionData = JSON.parse(
+    fs.readFileSync(subscriptionDataPath),
+    "utf8"
+);
+
 let workers = []; // Store the worker data
 const writeFileAsync = util.promisify(fs.writeFile);
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const updateWorkerData = async (newDevice) => {
     console.log("Updating worker data...");
@@ -23,9 +39,6 @@ const updateWorkerData = async (newDevice) => {
         workers.push(newDevice);
     }
 
-    const filePath = path.join(__dirname, "../db/workerData.json");
-    const dirPath = path.join(__dirname, "../db");
-
     // Create the db directory if it doesn't exist
     if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath, { recursive: true });
@@ -33,40 +46,150 @@ const updateWorkerData = async (newDevice) => {
 
     // Write the updated data to the JSON file
     try {
-        await writeFileAsync(filePath, JSON.stringify(workers, null, 2));
+        await writeFileAsync(workerDataPath, JSON.stringify(workers, null, 2));
         console.log("workerData.json updated.");
     } catch (err) {
         console.error("JSON write error: ", err);
     }
 };
 
+const fetchBlockRewards = async (deviceId, timestamp) => {
+    const url = `${apiUrl2}/blocks/${timestamp}/workers/${deviceId}`;
+    try {
+        const response = await axios.get(url, {
+            headers: { Token: `${apiToken}` },
+        });
+        return response.data; // Assuming this is the structure of the response
+    } catch (error) {
+        if (error.response && error.response.status === 404) {
+            // No block rewards data for this timestamp
+            return null;
+        } else {
+            console.error("Error fetching block rewards: ", error);
+            return null;
+        }
+    }
+};
+
 const fetchSubscriptionDevices = async () => {
-    const subscriptionData = JSON.parse(
-        fs.readFileSync(
-            path.join(__dirname, "../db/subscriptionData.json"),
-            "utf8"
-        )
-    );
+    console.log("************** Next fetching cycle started **************");
     for (const subscription of subscriptionData) {
         for (const deviceId of subscription.subscriptions) {
             await fetchData(deviceId);
-            // 250ms delay between each device fetch
-            await new Promise((resolve) => setTimeout(resolve, 250));
         }
     }
+    console.log("************** Data fetching cycle completed **************");
+    setTimeout(fetchSubscriptionDevices, 0);
 };
 
 const fetchData = async (deviceId) => {
     try {
         console.log(`Data fetching started for device ID: ${deviceId}..`);
-        let url = `${apiUrl}/devices/${deviceId}/details`;
+        let url = `${apiUrl}/devices/${deviceId}/summary`;
         const res = await axios.get(url, {
             headers: {
                 Token: `${apiToken}`,
             },
         });
+        await delay(250); // Add a delay to avoid rate limiting
         const newDevice = res.data.data;
         if (newDevice) {
+            // Define the start time of block rewards (June 25, 2024 12:00:00 UTC)
+            const startTime = new Date("2024-06-25T15:00:00");
+            // Latest block rewards data is from 1 hour ago
+            const endTime = new Date();
+            endTime.setHours(endTime.getHours() - 1);
+
+            const blockRewards = [];
+
+            // Fetch block rewards data for each hour
+            for (
+                let time = startTime;
+                time <= endTime;
+                time.setHours(time.getHours() + 1)
+            ) {
+                const formattedTimestamp =
+                    time.toISOString().slice(0, 13) + ":00:00";
+                console.log("Fetching block rewards for: ", formattedTimestamp);
+                const rewards = await fetchBlockRewards(
+                    deviceId,
+                    formattedTimestamp
+                );
+                await delay(250); // Add a delay to avoid rate limiting
+                if (rewards) {
+                    blockRewards.push(rewards);
+                    subscriptionData.forEach((sub) => {
+                        sub.subscriptions.forEach((deviceId) => {
+                            const worker = workers.find(
+                                (w) => w.device_id === deviceId
+                            );
+                            if (
+                                worker &&
+                                worker.block_rewards &&
+                                worker.block_rewards.length > 0
+                            ) {
+                                let lastDayRewards = 0;
+                                let lastDayUptimeMinutes = 0;
+                                let lastDaySuccessfulBlocks = 0;
+                                let lastDayFailedBlocks = 0;
+                                let totalBlockRewards = 0;
+
+                                worker.block_rewards.forEach((blockReward) => {
+                                    const rewardDate = new Date(
+                                        blockReward.time_and_date
+                                    );
+                                    const diffHours =
+                                        Math.abs(new Date() - rewardDate) /
+                                        36e5;
+
+                                    if (diffHours <= 24) {
+                                        if (blockReward.status === "Success") {
+                                            lastDayRewards +=
+                                                blockReward.rewarded;
+                                            lastDayUptimeMinutes +=
+                                                blockReward.uptime_in_minutes;
+                                            lastDaySuccessfulBlocks++;
+                                        } else if (
+                                            blockReward.status === "Failed"
+                                        ) {
+                                            lastDayFailedBlocks++;
+                                        }
+                                    }
+
+                                    totalBlockRewards += blockReward.rewarded;
+                                });
+
+                                const lastDayUptime = lastDayUptimeMinutes / 60;
+
+                                worker.totalRevenue = parseFloat(
+                                    totalBlockRewards + worker.total_earnings
+                                ).toFixed(3);
+
+                                worker.message = `Device ID: ${deviceId} has completed ${
+                                    worker.total_jobs
+                                } jobs and earned ${parseFloat(
+                                    worker.total_earnings
+                                ).toFixed(3)} $IO by serving ${
+                                    worker.total_compute_hours_served
+                                } hours. \nIn the last 24 hours, this device completed ${lastDaySuccessfulBlocks} successful and ${lastDayFailedBlocks} failed block events, gained ${parseFloat(
+                                    lastDayRewards
+                                ).toFixed(3)} $IO coin within ${Math.floor(
+                                    lastDayUptime
+                                )} hours uptime. Total $IO earnings of this device: ${
+                                    worker.totalRevenue
+                                }\n\n`;
+                            }
+                        });
+                    });
+                }
+            }
+
+            // Add block rewards data to the device object
+            if (blockRewards.length > 0) {
+                newDevice.block_rewards = blockRewards;
+            }
+
+            // Update the worker data
             await updateWorkerData(newDevice);
         }
     } catch (error) {
@@ -76,9 +199,6 @@ const fetchData = async (deviceId) => {
 
 // Fetch data on startup
 fetchSubscriptionDevices();
-
-// Continue to fetch data every 2 minutes
-setInterval(fetchSubscriptionDevices, 120000);
 
 module.exports = {
     fetchSubscriptionDevices,
