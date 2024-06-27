@@ -71,7 +71,7 @@ const fetchBlockRewards = async (deviceId, timestamp) => {
     }
 };
 
-const fetchSubscriptionDevices = async () => {
+const fetchSubscribedWorkers = async () => {
     console.log("************** Next fetching cycle started **************");
     for (const subscription of subscriptionData) {
         for (const deviceId of subscription.subscriptions) {
@@ -79,7 +79,7 @@ const fetchSubscriptionDevices = async () => {
         }
     }
     console.log("************** Data fetching cycle completed **************");
-    setTimeout(fetchSubscriptionDevices, 0);
+    setTimeout(fetchSubscribedWorkers, 0);
 };
 
 const fetchData = async (deviceId) => {
@@ -165,7 +165,9 @@ const fetchData = async (deviceId) => {
                                     totalBlockRewards + worker.total_earnings
                                 ).toFixed(3);
 
-                                worker.message = `Device ID: ${deviceId} has completed ${
+                                worker.message = `Device Name: ${
+                                    newDevice.device_name
+                                } has completed ${
                                     worker.total_jobs
                                 } jobs and earned ${parseFloat(
                                     worker.total_earnings
@@ -198,9 +200,9 @@ const fetchData = async (deviceId) => {
 };
 
 // Fetch data on startup
-fetchSubscriptionDevices();
+fetchSubscribedWorkers();
 
 module.exports = {
-    fetchSubscriptionDevices,
+    fetchSubscribedWorkers,
     workers,
 };

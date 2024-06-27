@@ -18,8 +18,8 @@ module.exports = {
         );
         if (userSubscription) {
             await interaction.reply({
-                content: `Your subscriptions: ${userSubscription.subscriptions.join(
-                    ", "
+                content: `Your subscriptions:\n\t${userSubscription.subscriptions.join(
+                    ",\n\t"
                 )}`,
                 ephemeral: true,
             });

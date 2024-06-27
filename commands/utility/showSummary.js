@@ -27,7 +27,7 @@ async function getWorkerData() {
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName("show-earnings")
+        .setName("show-summary")
         .setDescription("Shows earnings summary of your workers"),
     async execute(interaction) {
         const subscriptionData = await getSubscriptionData(interaction.user.id);
@@ -44,13 +44,15 @@ module.exports = {
         // Create an embed to display the earnings summary
         const earningsEmbed = new EmbedBuilder()
             .setColor("#0099ff")
-            .setTitle("Earnings Summary")
+            .setTitle("Worker Summary")
             .setAuthor({
                 name: "IOnet",
                 iconURL: "https://i.ibb.co/5kh8f9r/ionetlogo.png",
                 url: "https://ionet.io/",
             })
-            .setDescription("Here is the summary of your workers earnings")
+            .setDescription(
+                "Here is the summary of each worker device that you have been subscribed"
+            )
             .setImage({
                 url: "https://files.readme.io/4aa7b4b-111.png",
             })
