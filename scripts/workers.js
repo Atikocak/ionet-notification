@@ -62,8 +62,8 @@ const fetchBlockRewards = async (deviceId, timestamp) => {
         return response.data; // Assuming this is the structure of the response
     } catch (error) {
         if (error.response && error.response.status === 404) {
-            // No block rewards data for this timestamp
-            return null;
+            // No block rewards data for this timestamp, return a specific object indicating the failure
+            return { status: "Not Found", block_id: timestamp };
         } else {
             console.error("Error fetching block rewards: ", error);
             return null;
@@ -99,7 +99,6 @@ const fetchData = async (deviceId) => {
             // Latest block rewards data is from 1 hour ago
             const endTime = new Date();
             endTime.setHours(endTime.getHours() - 1);
-
             const blockRewards = [];
 
             // Fetch block rewards data for each hour
@@ -116,7 +115,11 @@ const fetchData = async (deviceId) => {
                     formattedTimestamp
                 );
                 await delay(250); // Add a delay to avoid rate limiting
-                if (rewards) {
+
+                // Handle the case where there is no block rewards data for this timestamp
+                if (rewards && rewards.status === "Not Found") {
+                    blockRewards.push(rewards);
+                } else if (rewards) {
                     blockRewards.push(rewards);
                     subscriptionData.forEach((sub) => {
                         sub.subscriptions.forEach((deviceId) => {
@@ -133,24 +136,35 @@ const fetchData = async (deviceId) => {
                                 let lastDaySuccessfulBlocks = 0;
                                 let lastDayFailedBlocks = 0;
                                 let totalBlockRewards = 0;
+                                let missingBlockReward = 0;
 
                                 worker.block_rewards.forEach((blockReward) => {
+                                    if (blockReward.status == "Not Found") {
+                                        missingBlockReward++;
+                                        return;
+                                    }
                                     const rewardDate = new Date(
                                         blockReward.time_and_date
                                     );
+                                    console.log(`Reward date: ${rewardDate}`);
                                     const diffHours =
                                         Math.abs(new Date() - rewardDate) /
                                         36e5;
+                                    console.log(
+                                        `********* Difference in hours: ${parseFloat(
+                                            diffHours.toFixed(2)
+                                        )}`
+                                    );
 
                                     if (diffHours <= 24) {
-                                        if (blockReward.status === "Success") {
+                                        if (blockReward.status == "Success") {
                                             lastDayRewards +=
                                                 blockReward.rewarded;
                                             lastDayUptimeMinutes +=
                                                 blockReward.uptime_in_minutes;
                                             lastDaySuccessfulBlocks++;
                                         } else if (
-                                            blockReward.status === "Failed"
+                                            blockReward.status == "Failed"
                                         ) {
                                             lastDayFailedBlocks++;
                                         }
@@ -159,7 +173,10 @@ const fetchData = async (deviceId) => {
                                     totalBlockRewards += blockReward.rewarded;
                                 });
 
-                                const lastDayUptime = lastDayUptimeMinutes / 60;
+                                let lastDayUptime =
+                                    lastDayUptimeMinutes / 60 +
+                                    missingBlockReward;
+                                // lastDayUptime += 3; // GMT offset between server and the ionet-backend
 
                                 worker.totalRevenue = parseFloat(
                                     totalBlockRewards + worker.total_earnings
