@@ -132,7 +132,7 @@ const fetchData = async (deviceId) => {
                                 worker.block_rewards.length > 0
                             ) {
                                 let lastDayRewards = 0;
-                                let lastDayUptimeMinutes = 0;
+                                let lastDayUptimeMinutes = 0.0;
                                 let lastDaySuccessfulBlocks = 0;
                                 let lastDayFailedBlocks = 0;
                                 let totalBlockRewards = 0;
@@ -146,15 +146,9 @@ const fetchData = async (deviceId) => {
                                     const rewardDate = new Date(
                                         blockReward.time_and_date
                                     );
-                                    console.log(`Reward date: ${rewardDate}`);
                                     const diffHours =
                                         Math.abs(new Date() - rewardDate) /
                                         36e5;
-                                    console.log(
-                                        `********* Difference in hours: ${parseFloat(
-                                            diffHours.toFixed(2)
-                                        )}`
-                                    );
 
                                     if (diffHours <= 24) {
                                         if (blockReward.status == "Success") {
