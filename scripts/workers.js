@@ -167,9 +167,7 @@ const fetchData = async (deviceId) => {
                                     totalBlockRewards += blockReward.rewarded;
                                 });
 
-                                let lastDayUptime =
-                                    lastDayUptimeMinutes / 60 +
-                                    missingBlockReward;
+                                let lastDayUptime = lastDayUptimeMinutes / 60;
                                 // lastDayUptime += 3; // GMT offset between server and the ionet-backend
 
                                 worker.totalRevenue = parseFloat(
@@ -184,11 +182,11 @@ const fetchData = async (deviceId) => {
                                     worker.total_earnings
                                 ).toFixed(3)} $IO by serving ${
                                     worker.total_compute_hours_served
-                                } hours. \nIn the last 24 hours, this device completed ${lastDaySuccessfulBlocks} successful and ${lastDayFailedBlocks} failed block events, gained ${parseFloat(
+                                } hours. \nIn the last 24 hours, this device joined ${lastDaySuccessfulBlocks} successful, ${lastDayFailedBlocks} failed, ${missingBlockReward} missing block events and got ${lastDayUptime} hours uptime in this period while gaining ${parseFloat(
                                     lastDayRewards
-                                ).toFixed(3)} $IO coin within ${Math.floor(
-                                    lastDayUptime
-                                )} hours uptime. Total $IO earnings of this device: ${
+                                ).toFixed(
+                                    3
+                                )} $IO coin. Total $IO earnings of this device: ${
                                     worker.totalRevenue
                                 }\n\n`;
                             }
