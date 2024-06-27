@@ -13,7 +13,6 @@ const subscriptionDataPath = path.join(
 );
 
 // Read the JSON files
-const workerData = JSON.parse(fs.readFileSync(workerDataPath), "utf8");
 const subscriptionData = JSON.parse(
     fs.readFileSync(subscriptionDataPath),
     "utf8"
