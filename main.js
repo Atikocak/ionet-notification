@@ -119,13 +119,6 @@ async function checkWorkersStatus() {
                     const lastChallenge =
                         sub.lastNotifiedStatus[worker.device_id]
                             .last_challenge_successful;
-                    console.log("Last status:", lastStatus);
-                    console.log("Last challenge:", lastChallenge);
-                    console.log("Current status:", worker.status);
-                    console.log(
-                        "Current challenge:",
-                        worker.last_challenge_successful
-                    );
 
                     if (
                         lastStatus !== worker.status ||
