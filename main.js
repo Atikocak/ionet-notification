@@ -110,22 +110,43 @@ async function checkWorkersStatus() {
                     if (!sub.lastNotifiedStatus) {
                         sub.lastNotifiedStatus = {};
                     }
+                    if (!sub.lastNotifiedStatus[worker.device_id]) {
+                        sub.lastNotifiedStatus[worker.device_id] = {};
+                    }
+
+                    const lastStatus =
+                        sub.lastNotifiedStatus[worker.device_id].status;
+                    const lastChallenge =
+                        sub.lastNotifiedStatus[worker.device_id]
+                            .last_challenge_successfull;
+
                     if (
-                        sub.lastNotifiedStatus[worker.device_id] !==
-                        worker.status
+                        lastStatus !== worker.status ||
+                        lastChallenge !== worker.last_challenge_successful
                     ) {
                         if (channelId) {
                             try {
                                 const channel = await client.channels.fetch(
                                     channelId
                                 );
-                                const message = `Worker ID: ${worker.device_id} - Status: ${worker.status}`;
+                                const message = `Worker ID: ${
+                                    worker.device_id
+                                } - Status: ${worker.status}, Verification: ${
+                                    worker.last_challenge_successful
+                                        ? "Success"
+                                        : "Failed"
+                                }`;
                                 await channel.send(
                                     `<@${discordId}> ${message}`
                                 );
                                 // Update last notified status
-                                sub.lastNotifiedStatus[worker.device_id] =
-                                    worker.status;
+                                sub.lastNotifiedStatus[
+                                    worker.device_id
+                                ].status = worker.status;
+                                sub.lastNotifiedStatus[
+                                    worker.device_id
+                                ].last_challenge_successful =
+                                    worker.last_challenge_successful;
                             } catch (error) {
                                 console.error(
                                     `Error sending message to ${discordId}:`,

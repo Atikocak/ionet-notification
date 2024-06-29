@@ -53,9 +53,7 @@ module.exports = {
             .setDescription(
                 "Here is the summary of each worker device that you have been subscribed"
             )
-            .setImage({
-                url: "https://files.readme.io/4aa7b4b-111.png",
-            })
+            .setImage("https://files.readme.io/4aa7b4b-111.png")
             .setTimestamp()
             .setFooter({
                 text: "This bot has been made for public use by Atibaba",
@@ -63,12 +61,14 @@ module.exports = {
 
         let deviceMessages = "";
         let totalEarnings = 0;
+        const fields = [];
+
         for (const deviceId of subscriptionData.subscriptions) {
             const worker = workerData.find((w) => w.device_id == deviceId);
             if (worker) {
-                deviceMessages += worker.message;
+                deviceMessages = worker.message;
                 totalEarnings += parseFloat(worker.totalRevenue);
-                earningsEmbed.addField({
+                fields.push({
                     name: `Worker ID: ${worker.device_id}`,
                     value: `Status: ${worker.status}\n${deviceMessages}`,
                     inline: false,
@@ -84,11 +84,13 @@ module.exports = {
             return;
         }
 
-        earningsEmbed.addField({
+        fields.push({
             name: "TOTAL REVENUE",
-            value: `${totalEarnings} $IO`,
+            value: `${parseFloat(totalEarnings).toFixed(3)} $IO`,
             inline: false,
         });
+
+        earningsEmbed.addFields(fields);
 
         await interaction.reply({
             embeds: [earningsEmbed],
