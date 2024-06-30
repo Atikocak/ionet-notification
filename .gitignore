@@ -33,6 +33,7 @@ db/
 # Geliştirme araçları tarafından oluşturulan dosyalar
 /.pnp
 .pnp.js
+control.js
 
 # Diğer
 *.tar.gz

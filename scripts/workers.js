@@ -120,7 +120,7 @@ async function updateWorkerData(newDevice) {
             workerDataPath,
             JSON.stringify(currentData, null, 2)
         );
-        console.log("workerData.json updated.");
+        console.log("workerData.json updated.\n");
     } catch (error) {
         console.error("Error updating worker data: ", error);
     }
@@ -158,10 +158,10 @@ async function fetchData(deviceId) {
         const newDevice = res.data.data;
         if (newDevice) {
             // Define the start time of block rewards (June 25, 2024 12:00:00 UTC)
-            const startTime = new Date("2024-06-25T15:00:00");
+            const startTime = new Date(Date.UTC(2024, 5, 25, 12, 0, 0));
             // Latest block rewards data is from 1 hour ago
             const endTime = new Date();
-            endTime.setHours(endTime.getHours() - 1);
+            // endTime.setMinutes(endTime.getMinutes() - 90);
             await ensureWorkerDataFileExists();
             const currentData = await getWorkerData();
             if (!Array.isArray(currentData)) {
@@ -171,6 +171,8 @@ async function fetchData(deviceId) {
 
             const worker = currentData.find((w) => w.device_id == deviceId);
             let blockRewards = worker ? worker.block_rewards.slice() : [];
+            const checkTime = new Date();
+            checkTime.setHours(checkTime.getHours() - 2);
 
             // Fetch block rewards data for each hour
             for (
@@ -184,22 +186,33 @@ async function fetchData(deviceId) {
 
                 await ensureWorkerDataFileExists();
 
+                // Change the timestamp format to match the block rewards data
+                const formattedTimestampDate = new Date(formattedTimestamp);
+
+                // Use Date.getTime() to compare timestamps
                 const index = blockRewards.findIndex(
-                    (br) => br.block_id === formattedTimestamp
+                    (br) =>
+                        new Date(br.block_id).getTime() ===
+                        formattedTimestampDate.getTime()
                 );
 
-                if (index === -1) {
+                if (
+                    index === -1 ||
+                    (blockRewards[index].status === "Not Found" &&
+                        new Date(blockRewards[index].block_id + "Z").getTime() >
+                            new Date(checkTime.toISOString()).getTime())
+                ) {
                     const rewards = await fetchBlockRewards(
                         deviceId,
                         formattedTimestamp
                     );
                     await delay(250); // Add a delay to avoid rate limiting
-
-                    // Handle the case where there is no block rewards data for this timestamp
-                    if (rewards && rewards.status === "Not Found") {
-                        blockRewards.push(rewards);
-                    } else if (rewards) {
-                        blockRewards.push(rewards);
+                    if (rewards) {
+                        if (index === -1) {
+                            blockRewards.push(rewards);
+                        } else {
+                            blockRewards[index] = rewards; // Update the existing "Not Found" record
+                        }
                     }
                 }
             }
@@ -230,9 +243,6 @@ async function fetchMessage(deviceId, workerData) {
         let processor = "";
 
         worker.block_rewards.forEach((blockReward) => {
-            if (blockReward.status == "Not Found") {
-                missingBlockReward++;
-            }
             const rewardDate = new Date(blockReward.time_and_date);
             const diffHours = Math.abs(new Date() - rewardDate) / 36e5;
 
@@ -244,6 +254,8 @@ async function fetchMessage(deviceId, workerData) {
                     lastDaySuccessfulBlocks++;
                 } else if (blockReward.status == "Failed") {
                     lastDayFailedBlocks++;
+                } else if (blockReward.status == "Not Found") {
+                    missingBlockReward++;
                 }
             }
             totalBlockRewards += isNaN(parseFloat(blockReward.rewarded))
@@ -270,7 +282,7 @@ async function fetchMessage(deviceId, workerData) {
             lastDayRewards
         ).toFixed(3)} $IO \nTotal: ${worker.totalRevenue.toFixed(3)} $IO\n\n`;
     }
-
+    console.log("Message fetched for device ID: ", deviceId, "\n");
     // Update the worker data
     await updateWorkerData(worker);
 }
